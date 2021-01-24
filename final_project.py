@@ -79,7 +79,7 @@ class final_project:
 
     def initial_data_analysis(self):
         """
-           analysis data and the connection between features.
+           analysis data, the connection between features and fill missing information.
            """
         # gives us initial analyze of the data -
         print('data describe: ')
@@ -129,6 +129,9 @@ class final_project:
         stalk_shape_n = pd.get_dummies(self.data['stalk_shape'])
         veil_color_n = pd.get_dummies(self.data['veil_color'])
 
+        classes_bin = np.where(self.data['classes'] == "e", 1, 0)
+        stalk_shape_bin = np.where(self.data['stalk_shape'] == "e", 1, 0)
+
         nominal_features = {}
         nominal_features['classes_n'] = classes_n
         nominal_features['cap_shape_n'] = cap_shape_n
@@ -136,46 +139,214 @@ class final_project:
         nominal_features['cap_color_n'] = cap_color_n
         nominal_features['stalk_shape_n'] = stalk_shape_n
         nominal_features['veil_color_n'] = veil_color_n
+        nominal_features['classes_bin'] = classes_bin
+        nominal_features['stalk_shape_bin'] = stalk_shape_bin
 
         return nominal_features
 
-    def create_plot(self, corr_):
+    def create_plot(self, corrMatrix):
         """
             generate heatmap diagram.
             """
-
-        mask = np.triu(np.ones_like(corr_, dtype=bool))
+        fig, ax = plt.subplots(figsize=(5, 5))
+        mask = np.triu(np.ones_like(corrMatrix, dtype=bool))
         cmap = sns.diverging_palette(200, 10, as_cmap=True)
-        sns.heatmap(corr_, mask=mask, cmap=cmap, center=0,square=True, linewidths=.5)
+
+        sns.heatmap(corrMatrix, mask=mask, annot=True, cmap=cmap, center=0, linewidth=.5, ax=ax)
         plt.show()
         plt.close()
 
-    def features_relation(self):
-        pass
+    def create_nominal_df(self, df, column, nominal_features):
+        """
+          create nominal dataframe.
+          """
+
+        for feature in nominal_features[column].columns:
+            df[column + '_' + feature] = nominal_features[column][feature]
+
+        return df
+
+    def features_relation(self, nominal_features):
+        """
+           check dependencies between features.
+           """
+        # numerical features correlation heatmap -
+        corrMatrix = self.data.corr()
+        self.create_plot(corrMatrix)
+
+        # ordinal features correlation heatmap -
+        ordinal_data = (self.ordinal())[['gill_attachment_ord', 'gill_spacing_ord', 'ring_number_ord']].copy()
+        corrMatrix = ordinal_data.corr()
+        self.create_plot(corrMatrix)
+
+        # create nominal features dataframe -
+        nominal_data = pd.DataFrame()
+        for column in nominal_features:
+            if column != 'classes_bin' and column != 'stalk_shape_bin':
+                self.create_nominal_df(nominal_data, column, nominal_features)
+
+        # numerical with nominal features correlation heatmap -
+        new_data = nominal_data.copy()
+        new_data['population'] = self.data['population']
+        new_data['odor'] = self.data['odor']
+
+        corrMatrix = new_data.corr()
+        fig, ax = plt.subplots(figsize=(13, 13))
+        mask = np.triu(np.ones_like(corrMatrix, dtype=bool))
+        cmap = sns.diverging_palette(200, 10, as_cmap=True)
+
+        sns.heatmap(corrMatrix, mask=mask, annot=True, cmap=cmap, center=0, linewidth=.5, ax=ax, fmt=".1f")
+        plt.show()
+        plt.close()
+
+        # ordinal with nominal features correlation heatmap -
+        new_data = nominal_data.copy()
+        new_data['gill_attachment_ord'] = ordinal_data['gill_attachment_ord']
+        new_data['gill_spacing_ord'] = ordinal_data['gill_spacing_ord']
+        new_data['ring_number_ord'] = ordinal_data['ring_number_ord']
+
+        corrMatrix = new_data.corr()
+        fig, ax = plt.subplots(figsize=(13, 13))
+        mask = np.triu(np.ones_like(corrMatrix, dtype=bool))
+        cmap = sns.diverging_palette(200, 10, as_cmap=True)
+
+        sns.heatmap(corrMatrix, mask=mask, annot=True, cmap=cmap, center=0, linewidth=.5, ax=ax, fmt=".1f")
+        plt.show()
+        plt.close()
+
+        # ordinal with numerical features correlation heatmap -
+        new_data = ordinal_data.copy()
+        new_data['population'] = self.data['population']
+        new_data['odor'] = self.data['odor']
+        corrMatrix = new_data.corr()
+        self.create_plot(corrMatrix)
+
+    def feature_graphs(self):
+        """
+           understand the numeric features distribution.
+           """
+
+        sns.histplot(self.data.population, bins=100, kde=True)
+        plt.show()
+        plt.close()
+
+        sns.histplot(self.data.odor, bins=100, kde=True)
+        plt.show()
+        plt.close()
+
+        sns.histplot(self.data.longitude, bins=100, kde=True)
+        plt.show()
+        plt.close()
+
+        sns.histplot(self.data.latitude, bins=100, kde=True)
+        plt.show()
+        plt.close()
+
+        sns.histplot(self.data.global_address, bins=100, kde=True)
+        plt.show()
+        plt.close()
+
+    def classes_relations(self, nominal_features):
+        """
+          explore classes relations with other features.
+          """
+        # we can see that when the odor is > 15 the chances for the mushroom to be poisonous are higher -
+        sns.jointplot(x='classes', y='odor', kind='scatter', data=self.data)
+        plt.show()
+        plt.close()
+
+        new_data = self.data[['odor']].copy()
+        new_data['classes_e'] = nominal_features['classes_n']['e']
+        new_data['classes_p'] = nominal_features['classes_n']['p']
+        corrMatrix = new_data.corr()
+        self.create_plot(corrMatrix)
+
+    def population_relations(self, nominal_features):
+        """
+          explore population relations with other features.
+          """
+        new_data = self.data[['population']].copy()
+        # gill_spacing = [0, -1, 1] -> 1 = crowded, 2 = close, 3 = distant
+        new_data['gill_spacing_ord'] = (self.ordinal())[['gill_spacing_ord']].copy()
+        # edible = 1, poisonous = 0
+        new_data['classes_bin'] = nominal_features['classes_bin']
+        sns.pairplot(new_data)
+        plt.show()
+        plt.close()
+
+        adress, classes = self.data['global_address'], new_data['classes_bin']
+        population = new_data['population']
+        gill_spacing = new_data['gill_spacing_ord']
+
+        for ar in [1, 2, 3]:
+            plt.scatter([], [], c='k', alpha=0.3, s=ar * 100, label=str(ar) + ' gill_spacing')
+        plt.legend(scatterpoints=1, frameon=False, labelspacing=2, title='gill_spacing')
+
+        plt.scatter(population, adress, label=None, c=classes, cmap='viridis', s=gill_spacing * 200, linewidth=0,
+                    alpha=0.5)
+
+        plt.axis("equal")
+        plt.xlabel('population')
+        plt.ylabel('global_address')
+        plt.colorbar(label="classes")
+
+        plt.title("feature: population, gill_spacing_ord X classes_bin")
+        plt.show()
+        plt.close()
+
+    def gill_attachment_relations(self, nominal_features):
+        """
+          explore gill_attachment relations with other features.
+          """
+        # gill_attachment = ['f', 'n', 'a', 'd'] 1 = free, 2 = notched , 3 = attached, 4 = descending
+        new_data = (self.ordinal())[['gill_attachment_ord']].copy()
+        # edible = 1, poisonous = 0
+        new_data['classes_bin'] = nominal_features['classes_bin']
+        adress, classes = self.data['global_address'], new_data['classes_bin']
+        gill_attachment_ord = new_data['gill_attachment_ord']
+        # w = white, n = brown, o = orange, y = yellow
+        veil_color = self.data['veil_color']
+        for ar in [1, 2, 3, 4]:
+            plt.scatter([], [], c='k', alpha=0.3, s=ar * 100, label=str(ar) + ' gill_attachment')
+        plt.legend(scatterpoints=1, frameon=False, labelspacing=1, title='gill_attachment')
+
+        plt.scatter(veil_color, adress, label=None, c=classes, cmap='viridis', s=gill_attachment_ord * 100, linewidth=0,
+                    alpha=0.5)
+
+        plt.axis("equal")
+        plt.xlabel('veil_color')
+        plt.ylabel('global_address')
+        plt.colorbar(label="classes")
+
+        plt.title("feature: gill_attachment, veil_color X classes_bin")
+        plt.show()
+        plt.close()
 
     def exploratory_data_analysis(self):
         """
-            pass.
+            explore features graphs and features relationship.
             """
+        # create new feature based on Latitude and Longitude -
+        self.data['global_address'] = self.data['latitude'] / self.data['longitude']
 
-        # data_corr = self.data.select_dtypes(np.number)
-        # corrMatrix = data_corr.corr()
-        # fig, ax = plt.subplots(figsize=(5, 5))
-        # mask = np.triu(np.ones_like(corrMatrix, dtype=bool))
-        # cmap = sns.diverging_palette(200, 10, as_cmap=True)
-        #
-        # sns.heatmap(corrMatrix, mask=mask, cmap=cmap, annot=True, center=0, linewidth=.5, ax=ax)
-        # plt.show()
-        # plt.close()
-
-        # we would like to explore the feature 'classes', which indicates whether the mushroom is poisonous or edible -
-        print('number of poisonous & edible mushrooms: ', self.data.classes.value_counts().head(), '\n')
-
+        # self.feature_graphs()//open
         nominal_features = self.nominal()
 
-        # check dependencies between features -
-        corr_ = pd.concat([nominal_features['classes_n'], nominal_features['veil_color_n']], axis=1).corr()
-        self.create_plot(corr_)
+        # explore features relations -
+        # self.features_relation(nominal_features)//open
+
+        # feature classes -
+        # explore classes (edible, poisonous) relations with other features we saw high correlation with -
+        # self.classes_relations(nominal_features)//open
+
+        # feature population -
+        # self.population_relations(nominal_features)//open
+
+        # feature gill attachment -
+        # self.gill_attachment_relations(nominal_features)//open
+
+        # >> to do:
+        # pivot table for classes and maybe for population - data exploration 2 -> 41:00
 
 
 def main():
