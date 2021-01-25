@@ -100,7 +100,7 @@ class final_project:
         print('data table: ')
         print(missing_data_columns.describe(include='all'), '\n')
 
-        # we can see from describe() the means for each new column -
+        # we can see from describe() the means\ top for each new\ original column -
         # 'gill_attachment_ord' mean ~ 1 = 'f'
         # 'gill_spacing_ord' mean ~ 2 = '-1'
         # 'ring_number_ord' mean ~ 2 = 'o'
@@ -254,6 +254,7 @@ class final_project:
         """
           explore classes relations with other features.
           """
+        # odor -
         # we can see that when the odor is > 15 the chances for the mushroom to be poisonous are higher -
         sns.jointplot(x='classes', y='odor', kind='scatter', data=self.data)
         plt.show()
@@ -265,11 +266,38 @@ class final_project:
         corrMatrix = new_data.corr()
         self.create_plot(corrMatrix)
 
+        # odor, population, cap surface -
+        data = self.data[['classes', 'population', 'odor']].copy()
+        data['cap_surfaces'] = self.create_nominal_df_ord(nominal_features)['cap_surfaces'].copy()
+        data['gill_spacing_ord'] = (self.ordinal())[['gill_spacing_ord']].copy()
+        data['ring_number_ord'] = (self.ordinal())[['ring_number_ord']].copy()
+        data['classes_bin'] = nominal_features['classes_bin']
+
+        odor, classes = data['odor'], data['classes_bin']
+        population, cap_surface = data['population'], data['cap_surfaces']
+        ring_number = data['ring_number_ord']
+
+
+        for ar in [1, 2, 3]:
+            plt.scatter([], [], c='k', alpha=0.3, s=(ar * 3) ** 2, label=str(ar) + ' ring_number')
+        plt.legend(scatterpoints=1, frameon=False, labelspacing=2, title='ring_number')
+
+        plt.scatter(cap_surface, population, label=None, c=classes, cmap='vlag', s=(ring_number * 3) ** 2, linewidth=0,
+                    alpha=0.5)
+        plt.xlim(0, 5)
+        plt.xlabel('cap_surface')
+        plt.ylabel('population')
+        plt.colorbar(label="classes")
+
+        plt.title("classes relations")
+        plt.show()
+        plt.close()
+
     def population_relations(self, nominal_features):
         """
           explore population relations with other features.
           """
-        new_data = self.data[['population']].copy()
+        new_data = self.data[['population', 'odor']].copy()
         # gill_spacing = [0, -1, 1] -> 1 = crowded, 2 = close, 3 = distant
         new_data['gill_spacing_ord'] = (self.ordinal())[['gill_spacing_ord']].copy()
         # edible = 1, poisonous = 0
@@ -278,23 +306,24 @@ class final_project:
         plt.show()
         plt.close()
 
-        adress, classes = self.data['global_address'], new_data['classes_bin']
+        classes = new_data['classes_bin']
         population = new_data['population']
         gill_spacing = new_data['gill_spacing_ord']
+        odor = new_data['odor']
 
         for ar in [1, 2, 3]:
-            plt.scatter([], [], c='k', alpha=0.3, s=ar * 100, label=str(ar) + ' gill_spacing')
+            plt.scatter([], [], c='k', alpha=0.3, s=ar ** 5, label=str(ar) + ' gill_spacing')
         plt.legend(scatterpoints=1, frameon=False, labelspacing=2, title='gill_spacing')
 
-        plt.scatter(population, adress, label=None, c=classes, cmap='viridis', s=gill_spacing * 200, linewidth=0,
+        plt.scatter(population, odor, label=None, c=classes, cmap='vlag', s=gill_spacing ** 5, linewidth=0,
                     alpha=0.5)
 
-        plt.axis("equal")
+
         plt.xlabel('population')
-        plt.ylabel('global_address')
+        plt.ylabel('odor')
         plt.colorbar(label="classes")
 
-        plt.title("feature: population, gill_spacing_ord X classes_bin")
+        plt.title("classes relations")
         plt.show()
         plt.close()
 
@@ -306,23 +335,22 @@ class final_project:
         new_data = (self.ordinal())[['gill_attachment_ord']].copy()
         # edible = 1, poisonous = 0
         new_data['classes_bin'] = nominal_features['classes_bin']
-        adress, classes = self.data['global_address'], new_data['classes_bin']
+        odor, classes = self.data['odor'], new_data['classes_bin']
         gill_attachment_ord = new_data['gill_attachment_ord']
         # w = white, n = brown, o = orange, y = yellow
         veil_color = self.data['veil_color']
         for ar in [1, 2]:
-            plt.scatter([], [], c='k', alpha=0.3, s=ar * 200, label=str(ar) + ' classes')
+            plt.scatter([], [], c='k', alpha=0.3, s=(ar * 5) ** 2, label=str(ar) + ' classes')
         plt.legend(scatterpoints=1, frameon=False, labelspacing=1, title='classes')
 
-        plt.scatter(veil_color, adress, label=None, c=gill_attachment_ord, cmap='viridis', s=classes * 200, linewidth=0,
+        plt.scatter(veil_color, odor, label=None, c=gill_attachment_ord, cmap='Paired', s=(classes * 5) ** 2, linewidth=0,
                     alpha=0.5)
 
-        plt.axis("equal")
         plt.xlabel('veil_color')
-        plt.ylabel('global_address')
+        plt.ylabel('odor')
         plt.colorbar(label="gill_attachment_ord")
 
-        plt.title("feature: gill_attachment, veil_color X classes_bin")
+        plt.title("gill_attachment relations")
         plt.show()
         plt.close()
 
@@ -366,11 +394,11 @@ class final_project:
         platform_numerical = pd.pivot_table(self.data, columns="classes", aggfunc=np.mean)
         print(platform_numerical.head(6), '\n')
 
-        # print(new_data.groupby('classes')['cap_shapes'].value_counts())
-        # print(new_data.groupby('classes')['cap_surfaces'].value_counts())
-        # print(new_data.groupby('classes')['stalk_shape_bin'].value_counts())
-        # print(new_data.groupby('classes')['veil_colors'].value_counts())
-        # print(new_data.groupby('classes')['cap_colors'].value_counts())
+        print(new_data.groupby('classes')['cap_shapes'].value_counts())
+        print(new_data.groupby('classes')['cap_surfaces'].value_counts())
+        print(new_data.groupby('classes')['stalk_shape_bin'].value_counts())
+        print(new_data.groupby('classes')['veil_colors'].value_counts())
+        print(new_data.groupby('classes')['cap_colors'].value_counts())
         # pivot table with nominal features -
         # will get the highest values first -
         print('pivot table with nominal features -')
@@ -385,6 +413,10 @@ class final_project:
         platform_ordinal = pd.pivot_table(ordinal_data, columns="classes",
                                           aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
         print(platform_ordinal.head(), '\n')
+        print('classes feature relation with ordinal features -')
+        print(ordinal_data.groupby('classes')['gill_attachment_ord'].value_counts())
+        print(ordinal_data.groupby('classes')['gill_spacing_ord'].value_counts())
+        print(ordinal_data.groupby('classes')['ring_number_ord'].value_counts())
 
     def gill_attachment_pivot_table(self, nominal_features):
         """
@@ -404,9 +436,11 @@ class final_project:
 
         # pivot table with nominal features -
         new_data['gill_attachment'] = self.data['gill_attachment'].copy()
+        # e=1, p=0
+        new_data['classes_bin'] = nominal_features['classes_bin']
         print('pivot table with nominal features -')
         platform_nominal = pd.pivot_table(new_data, columns="gill_attachment", aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
-        print(platform_nominal.head(), '\n')
+        print(platform_nominal.head(6), '\n')
 
         # pivot table with ordinal features -
         print('pivot table with ordinal features -')
@@ -431,14 +465,14 @@ class final_project:
         # explore classes (edible, poisonous) relations with other features we saw high correlation with -
         self.classes_relations(nominal_features)
 
+        # pivot table for classes feature -
+        self.classes_pivot_table(nominal_features)
+
         # feature population -
         self.population_relations(nominal_features)
 
         # feature gill attachment -
         self.gill_attachment_relations(nominal_features)
-
-        # pivot table for classes feature -
-        self.classes_pivot_table(nominal_features)
 
         # pivot table for gill attachment feature -
         self.gill_attachment_pivot_table(nominal_features)
