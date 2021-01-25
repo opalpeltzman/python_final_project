@@ -6,6 +6,8 @@ import numpy as np
 class final_project:
     def __init__(self, data):
         self.data = data
+        self.nominal_data = pd.DataFrame()
+        self.ordinal_data = pd.DataFrame()
 
 ########################################################################################################################
 # introduction -
@@ -176,6 +178,7 @@ class final_project:
 
         # ordinal features correlation heatmap -
         ordinal_data = (self.ordinal())[['gill_attachment_ord', 'gill_spacing_ord', 'ring_number_ord']].copy()
+        self.ordinal_data = ordinal_data
         corrMatrix = ordinal_data.corr()
         self.create_plot(corrMatrix)
 
@@ -185,6 +188,7 @@ class final_project:
             if column != 'classes_bin' and column != 'stalk_shape_bin':
                 self.create_nominal_df(nominal_data, column, nominal_features)
 
+        self.nominal_data = nominal_data
         # numerical with nominal features correlation heatmap -
         new_data = nominal_data.copy()
         new_data['population'] = self.data['population']
@@ -306,21 +310,109 @@ class final_project:
         gill_attachment_ord = new_data['gill_attachment_ord']
         # w = white, n = brown, o = orange, y = yellow
         veil_color = self.data['veil_color']
-        for ar in [1, 2, 3, 4]:
-            plt.scatter([], [], c='k', alpha=0.3, s=ar * 100, label=str(ar) + ' gill_attachment')
-        plt.legend(scatterpoints=1, frameon=False, labelspacing=1, title='gill_attachment')
+        for ar in [1, 2]:
+            plt.scatter([], [], c='k', alpha=0.3, s=ar * 200, label=str(ar) + ' classes')
+        plt.legend(scatterpoints=1, frameon=False, labelspacing=1, title='classes')
 
-        plt.scatter(veil_color, adress, label=None, c=classes, cmap='viridis', s=gill_attachment_ord * 100, linewidth=0,
+        plt.scatter(veil_color, adress, label=None, c=gill_attachment_ord, cmap='viridis', s=classes * 200, linewidth=0,
                     alpha=0.5)
 
         plt.axis("equal")
         plt.xlabel('veil_color')
         plt.ylabel('global_address')
-        plt.colorbar(label="classes")
+        plt.colorbar(label="gill_attachment_ord")
 
         plt.title("feature: gill_attachment, veil_color X classes_bin")
         plt.show()
         plt.close()
+
+    def create_nominal_df_ord(self, nominal_features):
+        """
+            create dataframe that holds one column for each nominal feature with its converted values to numbers.
+            """
+        veil_color_values = self.data.veil_color.unique().tolist()
+        cap_color_values = self.data.cap_color.unique().tolist()
+        cap_surface_values = self.data.cap_surface.unique().tolist()
+        cap_shape_values = self.data.cap_shape.unique().tolist()
+
+        new_data = pd.DataFrame()
+        # e=1, t=0
+        new_data['stalk_shape_bin'] = nominal_features['stalk_shape_bin']
+        # veil_color_values:  ['w', 'n', 'o', 'y'] -> w=1, n=2, o=3, y=4
+        new_data['veil_colors'] = (
+                pd.Categorical(self.data.veil_color, ordered=True, categories=veil_color_values).codes + 1)
+        # cap_color_values:  ['n'= 1, 'y'= 2, 'w'= 3, 'g'= 4, 'e'= 5, 'p'= 6, 'b'= 7, 'u'= 8, 'c'= 9, 'r'= 10]
+        new_data['cap_colors'] = (
+                pd.Categorical(self.data.cap_color, ordered=True, categories=cap_color_values).codes + 1)
+        # cap_surface_values:  ['s', 'y', 'f', 'g'] -> s=1, y=2, f=3, g=4
+        new_data['cap_surfaces'] = (
+                pd.Categorical(self.data.cap_surface, ordered=True, categories=cap_surface_values).codes + 1)
+        # cap_shape_values:  ['X'=1 , 'B'=2, 'S'=3, 'F'=4, 'K'=5, 'C'=6]
+        new_data['cap_shapes'] = (
+                pd.Categorical(self.data.cap_shape, ordered=True, categories=cap_shape_values).codes + 1)
+
+        return new_data
+
+    def classes_pivot_table(self, nominal_features):
+        """
+          generate pivot table for feature classes.
+          """
+        new_data = self.create_nominal_df_ord(nominal_features)
+        # e=1, p=0
+        new_data['classes'] = self.data['classes'].copy()
+
+        # pivot table with numerical features -
+        print('pivot table with numerical features -')
+        platform_numerical = pd.pivot_table(self.data, columns="classes", aggfunc=np.mean)
+        print(platform_numerical.head(6), '\n')
+
+        # print(new_data.groupby('classes')['cap_shapes'].value_counts())
+        # print(new_data.groupby('classes')['cap_surfaces'].value_counts())
+        # print(new_data.groupby('classes')['stalk_shape_bin'].value_counts())
+        # print(new_data.groupby('classes')['veil_colors'].value_counts())
+        # print(new_data.groupby('classes')['cap_colors'].value_counts())
+        # pivot table with nominal features -
+        # will get the highest values first -
+        print('pivot table with nominal features -')
+        platform_nominal = pd.pivot_table(new_data, columns="classes",
+                                          aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
+        print(platform_nominal.head(), '\n')
+
+        # pivot table with ordinal features -
+        print('pivot table with ordinal features -')
+        ordinal_data = (self.ordinal())[['gill_attachment_ord', 'gill_spacing_ord', 'ring_number_ord']].copy()
+        ordinal_data['classes'] = self.data['classes'].copy()
+        platform_ordinal = pd.pivot_table(ordinal_data, columns="classes",
+                                          aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
+        print(platform_ordinal.head(), '\n')
+
+    def gill_attachment_pivot_table(self, nominal_features):
+        """
+          generate pivot table for feature gill_attachment.
+          """
+        new_data = self.create_nominal_df_ord(nominal_features)
+        ordinal_data = (self.ordinal())[['gill_spacing_ord', 'ring_number_ord']].copy()
+        # pivot table with numerical features -
+        print('pivot table with numerical features -')
+        data = pd.DataFrame()
+        data['global_address'] = self.data['global_address'].copy()
+        data['odor'] = self.data['odor'].copy()
+        data['population'] = self.data['population'].copy()
+        data['gill_attachment'] = self.data['gill_attachment'].copy()
+        platform_numerical = pd.pivot_table(data, columns="gill_attachment", aggfunc=np.mean)
+        print(platform_numerical.head(), '\n')
+
+        # pivot table with nominal features -
+        new_data['gill_attachment'] = self.data['gill_attachment'].copy()
+        print('pivot table with nominal features -')
+        platform_nominal = pd.pivot_table(new_data, columns="gill_attachment", aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
+        print(platform_nominal.head(), '\n')
+
+        # pivot table with ordinal features -
+        print('pivot table with ordinal features -')
+        ordinal_data['gill_attachment'] = self.data['gill_attachment'].copy()
+        platform_ordinal = pd.pivot_table(ordinal_data, columns="gill_attachment", aggfunc=lambda x: x.value_counts()[:1].sort_values(ascending=False).index)
+        print(platform_ordinal.head(), '\n')
 
     def exploratory_data_analysis(self):
         """
@@ -329,24 +421,30 @@ class final_project:
         # create new feature based on Latitude and Longitude -
         self.data['global_address'] = self.data['latitude'] / self.data['longitude']
 
-        # self.feature_graphs()//open
+        self.feature_graphs()
         nominal_features = self.nominal()
 
         # explore features relations -
-        # self.features_relation(nominal_features)//open
+        self.features_relation(nominal_features)
 
         # feature classes -
         # explore classes (edible, poisonous) relations with other features we saw high correlation with -
-        # self.classes_relations(nominal_features)//open
+        self.classes_relations(nominal_features)
 
         # feature population -
-        # self.population_relations(nominal_features)//open
+        self.population_relations(nominal_features)
 
         # feature gill attachment -
-        # self.gill_attachment_relations(nominal_features)//open
+        self.gill_attachment_relations(nominal_features)
 
-        # >> to do:
-        # pivot table for classes and maybe for population - data exploration 2 -> 41:00
+        # pivot table for classes feature -
+        self.classes_pivot_table(nominal_features)
+
+        # pivot table for gill attachment feature -
+        self.gill_attachment_pivot_table(nominal_features)
+
+########################################################################################################################
+# exploratory_data_analysis -
 
 
 def main():
