@@ -1,11 +1,19 @@
+import IPython
 import matplotlib.pyplot as plt
 import pandas as pd
+import pydotplus
 import seaborn as sns
 import numpy as np
-import pydotplus
+
 from sklearn import metrics
 from sklearn.model_selection import train_test_split
 from sklearn.naive_bayes import GaussianNB
+
+from io import StringIO
+from IPython.display import Image
+from sklearn.tree import export_graphviz, DecisionTreeClassifier
+# which features are best for the classification -
+from sklearn.inspection import permutation_importance
 
 
 class final_project:
@@ -552,11 +560,41 @@ class final_project:
         plt.show()
         plt.close()
 
-    def decision_tree(self):
+    def decision_tree(self, data, iter):
         """
            Decision Tree classification.
            """
-        pass
+        tree_data = data.copy()
+        X = tree_data.drop(['classes'], axis=1)
+        y = tree_data['classes']
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1)  # 70% training and 30% test
+        clf = DecisionTreeClassifier()
+        clf.fit(X_train, y_train)
+
+        if iter == 0:
+            result = permutation_importance(clf, X, y, n_repeats=10, random_state=0)
+            importance = zip(X.columns, result['importances_mean'])
+
+            # summarize feature importance -
+            for i, v in importance:
+                print('Feature: %s, Score: %.5f' % (i, v))
+
+            # plot feature importance -
+            feat_importances = pd.Series(result['importances_mean'], index=X.columns)
+            feat_importances.nlargest(11).plot(kind='barh')
+            plt.show()
+
+        y_pred = clf.predict(X_test)
+        print("classification_report: ")
+        print(metrics.classification_report(y_test, y_pred), '\n')
+
+        dot_data = StringIO()
+        export_graphviz(clf, out_file=dot_data, filled=True, rounded=True, feature_names=X.columns,
+                        class_names=clf.classes_)
+        graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
+        graph.write_png('Tech.png')
+        Image(graph.create_png())
 
     def classification_model(self):
         """
@@ -577,11 +615,16 @@ class final_project:
         self.decision_tree_data = pd.concat([self.ordinal_data, nominal_order_data, numeric_data], axis=1)
 
         # 1. Gaussian naive bayes -
-        self.classification_data = self.data[['odor', 'population', 'classes']].copy()
+        self.classification_data = self.decision_tree_data[['odor', 'population', 'classes']].copy()
         self.naive_base()
 
         # 2. Decision Tree -
-        self.decision_tree()
+        # a. Using all data features -
+        self.decision_tree(self.decision_tree_data, 0)
+        # b. Using the most relevant features -
+        # data = self.decision_tree['classes', 'stalk_shape_bin', 'cap_surfaces']
+        self.decision_tree(self.decision_tree_data[['classes', 'stalk_shape_bin', 'cap_surfaces', 'odor']], 1)
+
 
 def main():
     data = "mushrooms3.csv"
