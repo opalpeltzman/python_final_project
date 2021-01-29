@@ -1,4 +1,3 @@
-import IPython
 import matplotlib.pyplot as plt
 import pandas as pd
 import pydotplus
@@ -103,19 +102,19 @@ class final_project:
         describe = self.data.describe(include='all')
         print(describe, '\n')
         # import data description to CSV file -
-        # describe.to_csv('description.csv')//open comment when submit
+        describe.to_csv('description.csv')
 
         # check if and which column has missing data -
         self.missing_data()
 
         # 3 columns have missing information. Those columns are categorical + ordinal
-        # in order to replace the missing data with the mean we will convert those
+        # in order to replace the missing data with the most freq value we will convert those
         # ordinal columns to hold ordered values, using method 'ordinal()'.
         missing_data_columns = self.ordinal()
         print('data table: ')
         print(missing_data_columns.describe(include='all'), '\n')
 
-        # we can see from describe() the means\ top for each new\ original column -
+        # we can see from describe() the means\top for each original column -
         # 'gill_attachment_ord' mean ~ 1 = 'f'
         # 'gill_spacing_ord' mean ~ 2 = '-1'
         # 'ring_number_ord' mean ~ 2 = 'o'
@@ -129,7 +128,7 @@ class final_project:
         # check, to see that we fixed all NaN values -
         self.missing_data()
         # save fixed data to CSV file -
-        # self.data.to_csv("./fixed_data")//open comment when submit
+        self.data.to_csv("./fixed_data")
 
 ########################################################################################################################
 # exploratory_data_analysis -
@@ -344,7 +343,8 @@ class final_project:
 
     def gill_attachment_relations(self, nominal_features):
         """
-          explore gill_attachment relations with other features.
+          explore gill_attachment relations with other features
+          according to high correlations.
           """
         # gill_attachment = ['f', 'n', 'a', 'd'] 1 = free, 2 = notched , 3 = attached, 4 = descending
         new_data = (self.ordinal())[['gill_attachment_ord']].copy()
@@ -498,10 +498,10 @@ class final_project:
     def naive_base(self, spread=30):
         """
            Gaussian naive bayes classification.
-           according to our exploratory data analysis we came to a
-           conclusion that the two features that classifies the best between
-           poisonous mushrooms to edible mushrooms are 'population'
-           and 'odor'
+           According to the exploratory data analysis,
+           I concluded that the two best distinguishing features between
+           poisonous mushrooms to edible mushrooms
+           are ‘population’ and ‘odor’.
            """
 
         # odor -
@@ -589,12 +589,13 @@ class final_project:
         print("classification_report: ")
         print(metrics.classification_report(y_test, y_pred), '\n')
 
-        dot_data = StringIO()
-        export_graphviz(clf, out_file=dot_data, filled=True, rounded=True, feature_names=X.columns,
+        if iter == 1:
+            dot_data = StringIO()
+            export_graphviz(clf, out_file=dot_data, filled=True, rounded=True, feature_names=X.columns,
                         class_names=clf.classes_)
-        graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
-        graph.write_png('Tech.png')
-        Image(graph.create_png())
+            graph = pydotplus.graph_from_dot_data(dot_data.getvalue())
+            graph.write_png('TreeTwoF.png')
+            # Image(graph.create_png())
 
     def classification_model(self):
         """
@@ -602,12 +603,7 @@ class final_project:
            1. Gaussian naive bayes.
            2. Decision Tree.
            """
-        ############################################################################
-        # delete this rows after checks!!!!!!!!!!!! -
-        ordinal_data = (self.ordinal())[['gill_attachment_ord', 'gill_spacing_ord', 'ring_number_ord']].copy()
-        self.ordinal_data = ordinal_data
-        self.data['global_address'] = self.data['latitude'] / self.data['longitude']
-        #############################################################################
+
         # create new data set after changing categorical features -
         nominal_features = self.nominal()
         nominal_order_data = self.create_nominal_df_ord(nominal_features)
@@ -634,7 +630,7 @@ def main():
     # initial_data_analysis -
     f.initial_data_analysis()
     # exploratory_data_analysis -
-    # f.exploratory_data_analysis()
+    f.exploratory_data_analysis()
     # classification model -
     f.classification_model()
 
