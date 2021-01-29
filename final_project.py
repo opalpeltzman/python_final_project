@@ -2,12 +2,19 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 import numpy as np
+import pydotplus
+from sklearn import metrics
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB
+
 
 class final_project:
     def __init__(self, data):
         self.data = data
         self.nominal_data = pd.DataFrame()
         self.ordinal_data = pd.DataFrame()
+        self.classification_data = pd.DataFrame()
+        self.decision_tree_data = pd.DataFrame()
 
 ########################################################################################################################
 # introduction -
@@ -478,8 +485,103 @@ class final_project:
         self.gill_attachment_pivot_table(nominal_features)
 
 ########################################################################################################################
-# exploratory_data_analysis -
+# classification model -
 
+    def naive_base(self, spread=30):
+        """
+           Gaussian naive bayes classification.
+           according to our exploratory data analysis we came to a
+           conclusion that the two features that classifies the best between
+           poisonous mushrooms to edible mushrooms are 'population'
+           and 'odor'
+           """
+
+        # odor -
+        col1 = self.classification_data.columns[0]
+        # population -
+        col2 = self.classification_data.columns[1]
+        # target -
+        target = self.classification_data.columns[2]
+
+        sns.scatterplot(data=self.classification_data, x=col1, y=col2, hue=target)
+        plt.show()
+        plt.close()
+
+        x_mushrooms = self.classification_data.drop(target, axis=1)
+        y_mushrooms = self.classification_data[target]
+
+        # split our data to test and train sets -
+        # test = 25% from data
+        Xtrian, Xtest, Ytrain, Ytest = train_test_split(x_mushrooms, y_mushrooms, random_state=1)
+
+        clf = GaussianNB()
+        clf = clf.fit(Xtrian, Ytrain)
+
+        # we have two values in target feature -
+        prob = len(clf.classes_) == 2
+
+        y_pred = clf.predict(Xtest)
+        print("classification_report: ")
+        print(metrics.classification_report(Ytest, y_pred), '\n')
+
+        # visualization -
+        hueorder = clf.classes_
+
+        def numify(val):
+            return np.where(clf.classes_ == val)[0]
+
+        Y = y_mushrooms.apply(numify)
+        x_min, x_max = x_mushrooms.loc[:, col1].min() - 1, x_mushrooms.loc[:, col1].max() + 1
+        y_min, y_max = x_mushrooms.loc[:, col2].min() - 1, x_mushrooms.loc[:, col2].max() + 1
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.2), np.arange(y_min, y_max, 0.2))
+
+        z = clf.predict_proba(np.c_[xx.ravel(), yy.ravel()])
+        z = np.argmax(z, axis=1)
+        colors = 'Set1'
+
+        # color plot for the result -
+        z = z.reshape(xx.shape)
+        plt.contourf(xx, yy, z, cmap=colors, alpha=0.5)
+        plt.colorbar()
+        plt.clim(0, len(clf.classes_) + 3)
+
+        sns.scatterplot(data=self.classification_data[::spread], x=col1, y=col2, hue=target, hue_order=hueorder,
+                        palette=colors)
+        fig = plt.gcf()
+        fig.set_size_inches(12, 8)
+        plt.show()
+        plt.close()
+
+    def decision_tree(self):
+        """
+           Decision Tree classification.
+           """
+        pass
+
+    def classification_model(self):
+        """
+           showing a result of two classification models -
+           1. Gaussian naive bayes.
+           2. Decision Tree.
+           """
+        ############################################################################
+        # delete this rows after checks!!!!!!!!!!!! -
+        ordinal_data = (self.ordinal())[['gill_attachment_ord', 'gill_spacing_ord', 'ring_number_ord']].copy()
+        self.ordinal_data = ordinal_data
+        self.data['global_address'] = self.data['latitude'] / self.data['longitude']
+        #############################################################################
+        # create new data set after changing categorical features -
+        nominal_features = self.nominal()
+        nominal_order_data = self.create_nominal_df_ord(nominal_features)
+        numeric_data = self.data[['odor', 'population', 'global_address', 'classes']].copy()
+        self.decision_tree_data = pd.concat([self.ordinal_data, nominal_order_data, numeric_data], axis=1)
+
+        # 1. Gaussian naive bayes -
+        self.classification_data = self.data[['odor', 'population', 'classes']].copy()
+        self.naive_base()
+
+        # 2. Decision Tree -
+        self.decision_tree()
 
 def main():
     data = "mushrooms3.csv"
@@ -489,7 +591,9 @@ def main():
     # initial_data_analysis -
     f.initial_data_analysis()
     # exploratory_data_analysis -
-    f.exploratory_data_analysis()
+    # f.exploratory_data_analysis()
+    # classification model -
+    f.classification_model()
 
 
 # Calling main function
